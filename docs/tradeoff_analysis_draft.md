@@ -7,7 +7,7 @@
 
 The proposed system allows a user to ask a natural-language question about a washing machine and receive an answer grounded in the official manual for the specified model. The response should identify the supporting section or page. If the model is missing, unsupported, or the selected manual does not contain sufficient evidence, the system should not invent an answer.
 
-The initial dataset is intentionally limited to five washing-machine models. It includes a deliberately difficult evaluation pair: `E30` occurs in both AEG L6FBI27W and Gaggenau WM260164, but refers to different problems. This pair will be used to test whether the system reliably keeps information from different models separate.
+The initial dataset is intentionally limited to five washing-machine models. It includes a deliberately difficult evaluation pair: `E30` occurs in both Zanussi ZWG1120M and Gaggenau WM260164, but refers to different problems. This pair will be used to test whether the system reliably keeps information from different models separate.
 
 This document records the decisions needed before implementation. It does not yet report measured cost, latency, or final evaluation results.
 
@@ -55,7 +55,7 @@ Pre-filtering simplifies source attribution and reduces cross-model contaminatio
 
 ### How the decision will be validated
 
-The same `E30` question will be tested with AEG L6FBI27W, with Gaggenau WM260164, and without a model. The two model-specific questions must retrieve different explanations from their respective manuals. The model-free question should request the model rather than guess.
+The same `E30` question will be tested with Zanussi ZWG1120M, with Gaggenau WM260164, and without a model. The two model-specific questions must retrieve different explanations from their respective manuals. The model-free question should request the model rather than guess.
 
 ## 4. Semantic flexibility versus exact-code matching
 
@@ -148,6 +148,5 @@ The first prototype should:
 2. Require a supported model before retrieval.
 3. Filter by model before ranking candidate passages.
 4. Return the top three passages with page or section references.
-5. Test the two model-specific `E30` cases before adding answer generation.
+5. Test the two model-specific `E30` cases before adding answer generation: a door-closure fault for Zanussi ZWG1120M and a drainage fault for Gaggenau WM260164.
 6. Add grounded answer generation and refusal behaviour only after model-filtered retrieval works correctly.
-
