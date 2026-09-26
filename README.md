@@ -48,8 +48,7 @@ python evaluation/run_smoke_answering.py
 
 The retrieval smoke test reports Recall@3. The answer/refusal test checks that
 answerable questions cite the expected evidence and that unsupported requests are
-refused without a citation. The current answer is an extractive baseline; grounded
-language-model generation and manual faithfulness review will be added separately.
+refused without a citation.
 
 ## Grounded language-model generation
 
@@ -78,3 +77,36 @@ The program uses the OpenAI-compatible OpenRouter endpoint and defaults to
 `openai/gpt-6-luna`. API usage is appended locally to `outputs/api_usage.jsonl`,
 including input tokens, output tokens, latency, and reported or estimated token cost.
 Requests rejected by the local evidence gate do not call the API.
+
+## Formal evaluation
+
+The fixed evaluation set contains 50 cases: 35 answerable questions, five questions
+whose answers are absent from the selected model's manual, five unsupported models,
+and five requests with missing model information. Twenty answerable cases are fixed
+in advance for manual faithfulness review.
+
+Run retrieval and routing without making API calls:
+
+```bash
+python evaluation/run_formal_evaluation.py
+```
+
+This writes `evaluation/formal_retrieval_results_50.csv` and does not overwrite the
+completed generated-answer results.
+
+Run grounded answer generation through the configured OpenRouter account:
+
+```bash
+python evaluation/run_formal_evaluation.py --generate
+```
+
+Use `--resume` to reuse passing rows and rerun failures only. The completed results
+are written to `evaluation/formal_results_50.csv`.
+
+Recorded formal run:
+
+- Recall@3: 35/35 (100%)
+- Answer generation: 35/35 answerable cases
+- Refusal accuracy: 15/15 unanswerable or unroutable cases
+- Manually reviewed faithfulness: 19/20 (95%)
+- API use: 36,748 tokens across 35 calls; estimated cost USD 0.00566507

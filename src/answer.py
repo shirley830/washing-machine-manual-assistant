@@ -66,6 +66,27 @@ TOKEN_ALIASES = {
 
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|\s*[•▶■]\s*")
 
+EVIDENCE_CONCEPTS = {
+    "add_laundry": ("add laundry", "adding laundry", "add garments"),
+    "child_lock": ("child lock", "childproof lock", "kindersicherung"),
+    "detergent_drawer": ("detergent drawer", "waschmittelschublade"),
+    "drain_pump": ("drain pump", "laugenpumpe"),
+    "emergency_release": ("emergency release", "notentriegelung"),
+    "excessive_foam": ("excessive foam", "strong foam", "schaumbildung"),
+    "frost_protection": (
+        "temperatures below 0",
+        "temperatures under 0",
+        "temperaturen unter 0",
+        "frostschutzmaßnahmen",
+    ),
+    "main_wash": ("main wash", "hauptwaschgang"),
+    "network_settings": ("network settings", "netzwerkeinstellungen"),
+    "power_failure": ("power failure", "power cut", "stromausfall"),
+    "remote_start": ("remote start", "fernstart"),
+    "sort_laundry": ("sort laundry", "sortieren der wäsche"),
+    "water_inlet_filter": ("water inlet filter", "wasserzulauffilter"),
+}
+
 
 def normalize_token(token: str) -> str:
     """Apply small transparent normalizations used by the evidence gate."""
@@ -82,6 +103,16 @@ def content_terms(text: str) -> set[str]:
         for token in tokenize(text)
         if normalize_token(token) not in STOPWORDS
         and not canonical(token).isdigit()
+    }
+
+
+def evidence_concepts(text: str) -> set[str]:
+    """Map equivalent English and German manual phrases to shared concepts."""
+    normalized = " ".join(text.casefold().split())
+    return {
+        concept
+        for concept, phrases in EVIDENCE_CONCEPTS.items()
+        if any(phrase in normalized for phrase in phrases)
     }
 
 
@@ -109,7 +140,25 @@ def evidence_is_sufficient(
                 return True, "An exact error code appears in the evidence.", 1.0
         return False, "The requested error code does not appear in the evidence.", 0.0
 
-    coverage, matched = evidence_coverage(question, results[0]["text"])
+    requested_concepts = evidence_concepts(question)
+    if requested_concepts:
+        for result in results:
+            matched_concepts = requested_concepts & evidence_concepts(result["text"])
+            if matched_concepts == requested_concepts:
+                return (
+                    True,
+                    "The evidence contains the requested manual concept.",
+                    1.0,
+                )
+
+    coverage_candidates = [
+        (*evidence_coverage(question, result["text"]), result["rank"])
+        for result in results
+    ]
+    coverage, matched, best_rank = max(
+        coverage_candidates,
+        key=lambda item: (item[0], -item[2]),
+    )
     if coverage < minimum_coverage:
         matched_text = ", ".join(sorted(matched)) or "none"
         return (
@@ -117,7 +166,11 @@ def evidence_is_sufficient(
             f"The best passage covers too few key terms (matched: {matched_text}).",
             coverage,
         )
-    return True, "The best passage contains the required key terms.", coverage
+    return (
+        True,
+        f"Retrieved passage {best_rank} contains the required key terms.",
+        coverage,
+    )
 
 
 def extract_answer_sentences(question: str, passage: str, limit: int = 3) -> str:

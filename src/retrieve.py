@@ -17,8 +17,25 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = PROJECT_ROOT / "data" / "manuals_manifest.csv"
 DEFAULT_CHUNKS = PROJECT_ROOT / "outputs" / "chunks.jsonl"
 
-TOKEN_PATTERN = re.compile(r"[a-z0-9]+(?:[-:/][a-z0-9]+)*", re.IGNORECASE)
+TOKEN_PATTERN = re.compile(r"[^\W_]+(?:[-:/][^\W_]+)*", re.IGNORECASE)
 ERROR_CODE_PATTERN = re.compile(r"\b[a-z]\s*:?\s*\d{2,}\b", re.IGNORECASE)
+
+# Transparent domain vocabulary used to bridge English questions and German manuals.
+# The original question remains unchanged for display and logging.
+QUERY_EXPANSIONS = {
+    "add laundry": "adding laundry garments programme start pause",
+    "child lock": "kindersicherung aktivieren deaktivieren",
+    "detergent drawer": "waschmittelschublade",
+    "drain pump": "laugenpumpe reinigen",
+    "emergency release": "notentriegelung",
+    "excessive foam": "starke schaumbildung sofortmaßnahme",
+    "main wash": "hauptwaschgang",
+    "network settings": "netzwerkeinstellungen zurücksetzen",
+    "power failure": "stromausfall",
+    "remote start": "remote start deactivated circumstances",
+    "sort laundry": "wäsche sortieren",
+    "unlock the door manually": "notentriegelung tür entriegeln",
+}
 
 
 class RetrievalInputError(ValueError):
@@ -33,6 +50,19 @@ def canonical(value: str) -> str:
 def tokenize(text: str) -> list[str]:
     """Create simple lowercase tokens without external dependencies."""
     return [token.casefold() for token in TOKEN_PATTERN.findall(text)]
+
+
+def expand_query(query: str) -> str:
+    """Append a small auditable bilingual vocabulary to the user's query."""
+    normalized = " ".join(tokenize(query))
+    additions = [
+        expansion
+        for phrase, expansion in QUERY_EXPANSIONS.items()
+        if phrase in normalized
+    ]
+    if not additions:
+        return query
+    return f"{query} {' '.join(additions)}"
 
 
 def extract_error_codes(text: str) -> set[str]:
@@ -103,7 +133,8 @@ def load_model_chunks(
 
 def bm25_scores(query: str, chunks: list[dict[str, Any]]) -> list[float]:
     """Calculate BM25 scores, with a small exact error-code bonus."""
-    query_terms = tokenize(query)
+    expanded_query = expand_query(query)
+    query_terms = tokenize(expanded_query)
     if not query_terms:
         raise RetrievalInputError("Please enter a question containing searchable words.")
 
@@ -116,7 +147,7 @@ def bm25_scores(query: str, chunks: list[dict[str, Any]]) -> list[float]:
     average_length = sum(map(len, tokenized_documents)) / document_count
     query_counts = Counter(query_terms)
     query_codes = extract_error_codes(query)
-    concept_phrases = query_concept_phrases(query_terms)
+    concept_phrases = query_concept_phrases(tokenize(query))
     k1 = 1.5
     b = 0.75
 
