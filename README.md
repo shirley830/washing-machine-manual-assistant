@@ -31,5 +31,22 @@ Run the answerable cases in the initial retrieval test set:
 python evaluation/run_smoke_retrieval.py
 ```
 
-The smoke-test runner reports Recall@3. Refusal behaviour and generated-answer
-faithfulness will be evaluated separately after answer generation is implemented.
+Create an evidence-gated extractive answer with a page citation:
+
+```bash
+python src/answer.py \
+  --brand Gaggenau \
+  --model WM260164 \
+  --question "What does error code E:30 / -80 mean?"
+```
+
+Run all initial answer/refusal checks:
+
+```bash
+python evaluation/run_smoke_answering.py
+```
+
+The retrieval smoke test reports Recall@3. The answer/refusal test checks that
+answerable questions cite the expected evidence and that unsupported requests are
+refused without a citation. The current answer is an extractive baseline; grounded
+language-model generation and manual faithfulness review will be added separately.
