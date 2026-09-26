@@ -50,3 +50,31 @@ The retrieval smoke test reports Recall@3. The answer/refusal test checks that
 answerable questions cite the expected evidence and that unsupported requests are
 refused without a citation. The current answer is an extractive baseline; grounded
 language-model generation and manual faithfulness review will be added separately.
+
+## Grounded language-model generation
+
+Install the dependencies, create a private local environment file, and add your own
+OpenRouter API key:
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env
+nano .env
+```
+
+The real `.env` file is ignored by Git. Do not paste the key into source code or
+commit it to the repository.
+
+Generate an English answer from the retrieved official-manual evidence:
+
+```bash
+python src/generate.py \
+  --brand Gaggenau \
+  --model WM260164 \
+  --question "What does error code E:30 / -80 mean?"
+```
+
+The program uses the OpenAI-compatible OpenRouter endpoint and defaults to
+`openai/gpt-6-luna`. API usage is appended locally to `outputs/api_usage.jsonl`,
+including input tokens, output tokens, latency, and reported or estimated token cost.
+Requests rejected by the local evidence gate do not call the API.
