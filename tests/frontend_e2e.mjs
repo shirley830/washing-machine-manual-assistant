@@ -53,6 +53,28 @@ function createMockOpenRouter() {
         return;
       }
 
+      if (requestBodies.length === 4) {
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({
+          id: "mock-empty-response",
+          object: "chat.completion",
+          created: 1,
+          model: payload.model,
+          choices: [{
+            index: 0,
+            message: { role: "assistant", content: null },
+            finish_reason: "stop"
+          }],
+          usage: {
+            prompt_tokens: 120,
+            completion_tokens: 0,
+            total_tokens: 120,
+            cost: 0
+          }
+        }));
+        return;
+      }
+
       const prompt = payload.messages?.at(-1)?.content ?? "";
       const content = prompt.includes("Model: ZWG1120M")
         ? "Error code E30 means that the washer door is not closed. [E1]"
@@ -227,6 +249,10 @@ async function run() {
     await assertText(desktop.getByRole("alert"), "OpenRouter rejected the API key");
     assert.equal(await desktop.locator(".wm-answer-shell").count(), 0, "an API failure must not leave a stale answer");
 
+    await submitQuestion(desktop, "What does error code E:30 / -80 mean?");
+    await assertText(desktop.getByRole("alert"), "OpenRouter did not return a usable answer");
+    assert.equal(await desktop.locator(".wm-answer-shell").count(), 0, "an empty model response must not leave a stale answer");
+
     assert.match(requestBodies[0].messages.at(-1).content, /Model: WM260164/);
     assert.match(requestBodies[1].messages.at(-1).content, /Model: ZWG1120M/);
 
@@ -252,7 +278,7 @@ async function run() {
     console.log(`PASS ${browserName} initial desktop layout and form state`);
     console.log("PASS Gaggenau and Zanussi model-collision answers with exact pages");
     console.log("PASS evidence-gated refusal without an API call");
-    console.log("PASS empty-input and authentication error states clear stale results");
+    console.log("PASS empty-input, authentication, and empty-response errors clear stale results");
     console.log("PASS mobile overflow, title alignment, and touch-target checks");
     console.log(`PASS ${requestBodies.length} deterministic mock OpenRouter requests; no paid API used`);
   } finally {

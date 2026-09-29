@@ -76,6 +76,35 @@ class GatewayRequestError(RuntimeError):
     """Raised when OpenRouter rejects or cannot parse the request."""
 
 
+def extract_response_text(response_payload: Any) -> str:
+    """Return non-empty assistant text from a compatible chat response."""
+    try:
+        content = response_payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as error:
+        raise GatewayRequestError(
+            "OpenRouter returned a response without assistant content."
+        ) from error
+
+    if isinstance(content, str):
+        output_text = content.strip()
+    elif isinstance(content, list):
+        text_parts = []
+        for part in content:
+            if isinstance(part, str):
+                text_parts.append(part)
+            elif isinstance(part, dict) and isinstance(part.get("text"), str):
+                text_parts.append(part["text"])
+        output_text = "".join(text_parts).strip()
+    else:
+        output_text = ""
+
+    if not output_text:
+        raise GatewayRequestError(
+            "OpenRouter returned an empty assistant response. Please try again."
+        )
+    return output_text
+
+
 def build_model_input(
     *, brand: str, model: str, question: str, results: list[dict[str, Any]]
 ) -> str:
@@ -200,9 +229,9 @@ def grounded_answer(
 
     try:
         response_payload = response.json()
-        output_text = response_payload["choices"][0]["message"]["content"].strip()
-    except (KeyError, IndexError, TypeError, ValueError) as error:
+    except ValueError as error:
         raise GatewayRequestError("OpenRouter returned an invalid response.") from error
+    output_text = extract_response_text(response_payload)
 
     usage_payload = response_payload.get("usage") or {}
     input_tokens = int(usage_payload.get("prompt_tokens") or 0)

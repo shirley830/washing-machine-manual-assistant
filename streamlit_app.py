@@ -526,7 +526,10 @@ def user_facing_error(error: Exception) -> str:
     if isinstance(error, GatewayConnectionError):
         return "The app could not connect to OpenRouter. Check the internet connection and try again."
     if isinstance(error, GatewayRequestError):
-        return "OpenRouter rejected the request. Check the selected model configuration."
+        return (
+            "OpenRouter did not return a usable answer. Please try again. "
+            "If this continues, check the selected model configuration."
+        )
     return str(error)
 
 
