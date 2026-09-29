@@ -1,48 +1,117 @@
-# washing-machine-manual-assistant
-A model-specific RAG assistant for answering washing machine questions using official manuals.
+<div align="center">
+  <img src="assets/logo.svg" alt="Washing Machine Manual Assistant logo" width="104">
 
-## Run the web interface from a fresh clone
+  # Washing Machine Manual Assistant
 
-The repository includes the prebuilt, model-labelled retrieval index at
-`data/chunks.jsonl`. The original PDF manuals are intentionally not required at
-runtime, so a fresh clone can answer questions without rebuilding the index.
+  **Every cycle, made clear.**
 
-Create a virtual environment, install the pinned dependencies, configure a private
-OpenRouter key, and start the Streamlit app:
+  A model-specific RAG assistant that answers washing-machine questions from official manuals, cites the exact source page, and refuses when the evidence is insufficient.
+
+  [![Project checks](https://github.com/shirley830/washing-machine-manual-assistant/actions/workflows/tests.yml/badge.svg)](https://github.com/shirley830/washing-machine-manual-assistant/actions/workflows/tests.yml)
+  ![Python 3.11](https://img.shields.io/badge/Python-3.11-165ee8?logo=python&logoColor=white)
+  ![Streamlit](https://img.shields.io/badge/Interface-Streamlit-092547?logo=streamlit&logoColor=white)
+</div>
+
+![Desktop interface showing the model-specific washing machine manual assistant](docs/images/app-desktop.png)
+
+## Why this project exists
+
+Washing-machine manuals are long, model-specific, and often difficult to search. A generic chatbot can easily mix instructions from different appliances or produce an answer that the selected manual never supported.
+
+This project reduces that risk by selecting the exact machine **before retrieval**, searching only its official manual, and requiring evidence before an answer can be generated.
+
+## What it does
+
+| Capability | Behaviour |
+| --- | --- |
+| Exact-model retrieval | Filters by brand and model before ranking passages. |
+| Verifiable answers | Every supported answer includes the official manual and page number. |
+| Evidence-gated generation | The language model receives only retrieved, model-specific evidence. |
+| Safe refusal | Missing, unsupported, or weakly evidenced requests are refused instead of guessed. |
+| Reproducible evaluation | Retrieval, generation, refusal, layout, and error states have automated checks. |
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Select brand and exact model] --> B[Search only that model's manual]
+    B --> C[Rank page-labelled passages]
+    C --> D{Enough evidence?}
+    D -- Yes --> E[Generate a grounded answer]
+    E --> F[Show the manual and exact page]
+    D -- No --> G[Return a clear refusal]
+```
+
+The checked-in retrieval index is built from page-labelled manual passages. Retrieval uses a local BM25 keyword baseline with exact-model filtering. Answer generation uses an OpenRouter model through an OpenAI-compatible endpoint, but unsupported requests are rejected locally before any API call.
+
+## Evaluation results
+
+The fixed formal evaluation contains 50 questions: 35 answerable cases and 15 cases that should be refused or cannot be routed.
+
+| Metric | Recorded result |
+| --- | ---: |
+| Retrieval Recall@3 | **35/35 (100%)** |
+| Answer generation | **35/35** answerable cases |
+| Refusal accuracy | **15/15 (100%)** |
+| Manually reviewed faithfulness | **20/20 (100%)** |
+| Recorded evaluation API use | 37,055 tokens / estimated USD 0.00575937 |
+
+Detailed outputs are available in [`evaluation/formal_retrieval_results_50.csv`](evaluation/formal_retrieval_results_50.csv) and [`evaluation/formal_results_50.csv`](evaluation/formal_results_50.csv).
+
+## Supported models
+
+| Brand | Model | Manual source |
+| --- | --- | --- |
+| Gaggenau | WM260162CN | Official Gaggenau manual |
+| Gaggenau | WM260164 | Official Gaggenau manual |
+| Gaggenau | WM262700-26 | Official Gaggenau manual |
+| SMEG | WM24UWH | Official SMEG manual |
+| Zanussi | ZWG1120M | Official Electrolux/Zanussi manual |
+
+The source URLs and local filenames are recorded in [`data/manuals_manifest.csv`](data/manuals_manifest.csv).
+
+## Quick start
+
+The repository includes the prebuilt model-labelled retrieval index at `data/chunks.jsonl`. The original PDF files are not required at runtime, so a fresh clone can run without rebuilding the index.
 
 ```bash
+git clone https://github.com/shirley830/washing-machine-manual-assistant.git
+cd washing-machine-manual-assistant
+
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
 cp .env.example .env
-# Edit .env and replace only the OPENROUTER_API_KEY placeholder.
+# Add your private OPENROUTER_API_KEY to .env.
+
 streamlit run streamlit_app.py
 ```
 
-The interface lets the user select one of the five supported models, ask a natural
-language question, and inspect the exact manual page used for the answer. Requests
-without sufficient model-specific evidence are refused before answer generation.
+Open the local address printed by Streamlit, normally `http://localhost:8501`.
 
-## Current prototype
+> [!IMPORTANT]
+> Keep `.env` private. It is ignored by Git and should never be committed.
 
-The project currently supports five washing-machine models. It extracts page-labelled
-manual passages and applies the brand/model filter before ranking passages with a
-local BM25 keyword baseline. No API key is required for ingestion or retrieval.
+## Interface
+
+The web interface supports keyboard navigation, mobile layouts, visible focus states, and reduced-motion preferences. Users select a brand and exact model, ask a natural-language question, and receive either an evidence-backed answer or a clear refusal.
+
+<div align="center">
+  <img src="docs/images/app-mobile.png" alt="Mobile interface" width="360">
+</div>
 
 ## Run the pipeline
 
-Rebuilding the checked-in index is optional. Place the five manifest-listed PDFs in
-`data/manuals/`, activate the virtual environment, and run:
+Rebuilding the checked-in index is optional. To rebuild it, place the five manifest-listed PDFs in `data/manuals/`, activate the virtual environment, and run:
 
 ```bash
-source .venv/bin/activate
 python src/ingest.py
 ```
 
-This replaces `data/chunks.jsonl`. PDF files remain excluded from Git, while the
-small deterministic index is committed so reviewers can run the project directly.
+The command replaces `data/chunks.jsonl`. PDF manuals remain excluded from Git, while the small deterministic index is committed so reviewers can run the project directly.
 
-Retrieve the three most relevant passages for one supported model:
+Retrieve the three most relevant passages for one model:
 
 ```bash
 python src/retrieve.py \
@@ -51,78 +120,7 @@ python src/retrieve.py \
   --question "What does error code E:30 / -80 mean?"
 ```
 
-Run the answerable cases in the initial retrieval test set:
-
-```bash
-python evaluation/run_smoke_retrieval.py
-```
-
-Create an evidence-gated extractive answer with a page citation:
-
-```bash
-python src/answer.py \
-  --brand Gaggenau \
-  --model WM260164 \
-  --question "What does error code E:30 / -80 mean?"
-```
-
-Run all initial answer/refusal checks:
-
-```bash
-python evaluation/run_smoke_answering.py
-```
-
-The retrieval smoke test reports Recall@3. The answer/refusal test checks that
-answerable questions cite the expected evidence and that unsupported requests are
-refused without a citation.
-
-## Browser end-to-end test
-
-The browser test starts the real Streamlit application and a deterministic local
-OpenRouter-compatible server. It tests two model-specific E30 answers, exact page
-citations, evidence-gated refusal, empty input, API authentication failure, stale
-answer clearing, desktop layout, mobile overflow, title alignment, and touch-target
-size. It does not use the real `.env` key and makes no paid API calls.
-
-Install the test-only browser dependency once, then run the test:
-
-```bash
-npm install
-npx playwright install chromium webkit
-npm run test:e2e:all
-```
-
-To use an existing Chrome installation instead of downloading Chromium:
-
-```bash
-PLAYWRIGHT_CHROMIUM_EXECUTABLE="/path/to/Google Chrome" npm run test:e2e
-```
-
-The WebKit run exercises the browser engine used by Safari. It is a browser-engine
-test rather than a claim that every physical iPhone or macOS Safari version was tested.
-
-The same retrieval, behavior, syntax, and browser checks run automatically through
-GitHub Actions on every push and pull request.
-
-The generation prompt also includes a regression-tested PDF-layout clarification for
-control labels that become ambiguous when a control-panel diagram is extracted as
-linear text.
-
-## Grounded language-model generation
-
-Install the dependencies, create a private local environment file, and add your own
-OpenRouter API key:
-
-```bash
-pip install -r requirements.txt
-cp .env.example .env
-nano .env
-```
-
-The real `.env` file is ignored by Git. Do not paste the key into source code or
-commit it to the repository.
-
-Generate an English answer from the retrieved official-manual evidence:
+Generate an evidence-grounded answer with a page citation:
 
 ```bash
 python src/generate.py \
@@ -131,40 +129,56 @@ python src/generate.py \
   --question "What does error code E:30 / -80 mean?"
 ```
 
-The program uses the OpenAI-compatible OpenRouter endpoint and defaults to
-`openai/gpt-6-luna`. API usage is appended locally to `outputs/api_usage.jsonl`,
-including input tokens, output tokens, latency, and reported or estimated token cost.
-Requests rejected by the local evidence gate do not call the API.
+API usage is logged locally to `outputs/api_usage.jsonl`. Requests rejected by the evidence gate do not call the API.
 
-## Formal evaluation
+## Testing
 
-The fixed evaluation set contains 50 cases: 35 answerable questions, five questions
-whose answers are absent from the selected model's manual, five unsupported models,
-and five requests with missing model information. Twenty answerable cases are fixed
-in advance for manual faithfulness review.
-
-Run retrieval and routing without making API calls:
+Run the retrieval, answer/refusal, formal-evaluation, and Python regression checks:
 
 ```bash
+python evaluation/run_smoke_retrieval.py
+python evaluation/run_smoke_answering.py
 python evaluation/run_formal_evaluation.py
+python -m unittest discover -s tests -p "test_*.py"
 ```
 
-This writes `evaluation/formal_retrieval_results_50.csv` and does not overwrite the
-completed generated-answer results.
-
-Run grounded answer generation through the configured OpenRouter account:
+Run the browser end-to-end tests:
 
 ```bash
-python evaluation/run_formal_evaluation.py --generate
+npm install
+npx playwright install chromium webkit
+npm run test:e2e:all
 ```
 
-Use `--resume` to reuse passing rows and rerun failures only. The completed results
-are written to `evaluation/formal_results_50.csv`.
+The browser suite starts the real Streamlit application and a deterministic local OpenRouter-compatible server. It checks model-specific answers, exact-page citations, refusal behaviour, empty input, authentication errors, stale-answer clearing, desktop alignment, mobile overflow, and touch-target size. It makes no paid API calls.
 
-Recorded formal run:
+The same checks run automatically through GitHub Actions on every push and pull request.
 
-- Recall@3: 35/35 (100%)
-- Answer generation: 35/35 answerable cases
-- Refusal accuracy: 15/15 unanswerable or unroutable cases
-- Manually reviewed faithfulness: 20/20 (100%)
-- API use: 37,055 tokens across 35 recorded evaluation calls; estimated cost USD 0.00575937
+## Project structure
+
+```text
+washing-machine-manual-assistant/
+├── assets/                 Logo, fonts, and documented product imagery
+├── data/
+│   ├── chunks.jsonl        Prebuilt page-labelled retrieval index
+│   └── manuals_manifest.csv
+├── docs/images/            Desktop and mobile interface previews
+├── evaluation/             Fixed datasets, runners, and recorded results
+├── src/
+│   ├── ingest.py           PDF extraction and chunk creation
+│   ├── retrieve.py         Exact-model filtering and BM25 retrieval
+│   ├── answer.py           Evidence gating and extractive answering
+│   └── generate.py         Grounded OpenRouter generation
+├── tests/                  Prompt and browser regression tests
+├── streamlit_app.py        Web interface
+└── requirements.txt        Pinned Python dependencies
+```
+
+## Design and reproducibility notes
+
+- [`PRODUCT.md`](PRODUCT.md) records the product purpose, users, constraints, and evidence policy.
+- [`DESIGN.md`](DESIGN.md) records the interface system, responsive behaviour, typography, and motion rules.
+- [`docs/tradeoff_analysis_draft.md`](docs/tradeoff_analysis_draft.md) documents retrieval and system-design trade-offs.
+- Official product-image source pages are documented in [`assets/machines/SOURCES.md`](assets/machines/SOURCES.md).
+
+The original manuals, `.env`, virtual environment, generated usage logs, and installed packages remain local and are intentionally excluded from version control.
