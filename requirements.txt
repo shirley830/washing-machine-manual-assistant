@@ -1,5 +1,5 @@
 fonttools==4.66.0
-openai==3.19.2
 pypdf==6.19.0
 python-dotenv==1.2.3
+requests==2.34.2
 streamlit==1.64.0

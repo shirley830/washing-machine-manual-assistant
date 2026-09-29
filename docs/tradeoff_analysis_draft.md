@@ -85,7 +85,7 @@ Retrieval will be evaluated using Recall@3. Results for ordinary natural-languag
 
 ### Options considered
 
-1. Allow the language model to supplement the manuals with general knowledge.
+1. Allow the configured generation model to supplement the manuals with general knowledge.
 2. Answer only when the selected manual provides sufficient supporting evidence.
 
 ### Initial decision

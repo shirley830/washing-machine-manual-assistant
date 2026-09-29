@@ -11,13 +11,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 import streamlit as st
-from openai import (
-    APIConnectionError,
-    AuthenticationError,
-    BadRequestError,
-    PermissionDeniedError,
-    RateLimitError,
-)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -27,7 +20,15 @@ MANIFEST_PATH = PROJECT_ROOT / "data" / "manuals_manifest.csv"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from generate import GenerationConfigurationError, grounded_answer  # noqa: E402
+from generate import (  # noqa: E402
+    GatewayAuthenticationError,
+    GatewayConnectionError,
+    GatewayPermissionError,
+    GatewayRateLimitError,
+    GatewayRequestError,
+    GenerationConfigurationError,
+    grounded_answer,
+)
 from retrieve import RetrievalInputError  # noqa: E402
 
 
@@ -516,15 +517,15 @@ def render_result(result: dict[str, Any], brand: str, model: str) -> None:
 
 def user_facing_error(error: Exception) -> str:
     """Translate API and configuration failures into actionable UI copy."""
-    if isinstance(error, AuthenticationError):
+    if isinstance(error, GatewayAuthenticationError):
         return "OpenRouter rejected the API key. Check OPENROUTER_API_KEY in the local .env file."
-    if isinstance(error, PermissionDeniedError):
+    if isinstance(error, GatewayPermissionError):
         return "The configured OpenRouter key cannot use the selected model. Check its model permissions."
-    if isinstance(error, RateLimitError):
+    if isinstance(error, GatewayRateLimitError):
         return "The request reached an OpenRouter rate, credit, or spending limit. Check the account and try again."
-    if isinstance(error, APIConnectionError):
+    if isinstance(error, GatewayConnectionError):
         return "The app could not connect to OpenRouter. Check the internet connection and try again."
-    if isinstance(error, BadRequestError):
+    if isinstance(error, GatewayRequestError):
         return "OpenRouter rejected the request. Check the selected model configuration."
     return str(error)
 
@@ -583,11 +584,11 @@ def main() -> None:
                 RetrievalInputError,
                 GenerationConfigurationError,
                 FileNotFoundError,
-                AuthenticationError,
-                PermissionDeniedError,
-                RateLimitError,
-                APIConnectionError,
-                BadRequestError,
+                GatewayAuthenticationError,
+                GatewayPermissionError,
+                GatewayRateLimitError,
+                GatewayConnectionError,
+                GatewayRequestError,
             ) as error:
                 st.error(user_facing_error(error))
 

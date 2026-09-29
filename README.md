@@ -26,7 +26,7 @@ This project reduces that risk by selecting the exact machine **before retrieval
 | --- | --- |
 | Exact-model retrieval | Filters by brand and model before ranking passages. |
 | Verifiable answers | Every supported answer includes the official manual and page number. |
-| Evidence-gated generation | The language model receives only retrieved, model-specific evidence. |
+| Evidence-gated generation | The configured model receives only retrieved, model-specific evidence. |
 | Safe refusal | Missing, unsupported, or weakly evidenced requests are refused instead of guessed. |
 | Reproducible evaluation | Retrieval, generation, refusal, layout, and error states have automated checks. |
 
@@ -42,7 +42,7 @@ flowchart LR
     D -- No --> G[Return a clear refusal]
 ```
 
-The checked-in retrieval index is built from page-labelled manual passages. Retrieval uses a local BM25 keyword baseline with exact-model filtering. Answer generation uses an OpenRouter model through an OpenAI-compatible endpoint, but unsupported requests are rejected locally before any API call.
+The checked-in retrieval index is built from page-labelled manual passages. Retrieval uses a local BM25 keyword baseline with exact-model filtering. Answer generation uses a model selected through OpenRouter, but unsupported requests are rejected locally before any API call.
 
 ## Evaluation results
 

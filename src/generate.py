@@ -12,15 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import requests
 from dotenv import load_dotenv
-from openai import (
-    APIConnectionError,
-    AuthenticationError,
-    BadRequestError,
-    OpenAI,
-    PermissionDeniedError,
-    RateLimitError,
-)
 
 from answer import evidence_is_sufficient
 from retrieve import RetrievalInputError, retrieve
@@ -30,16 +23,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 USAGE_LOG = Path(
     os.getenv("WM_ASSISTANT_USAGE_LOG", PROJECT_ROOT / "outputs" / "api_usage.jsonl")
 )
-DEFAULT_MODEL = "openai/gpt-6-luna"
+DEFAULT_MODEL = "openrouter/auto"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-
-# Standard short-context prices in USD per 1 million tokens.
-# Update these values if the selected model or official pricing changes.
-MODEL_PRICES = {
-    "openai/gpt-6-astra": {"input": 10.00, "output": 50.00},
-    "openai/gpt-6-sol": {"input": 2.00, "output": 10.00},
-    "openai/gpt-6-luna": {"input": 0.10, "output": 0.50},
-}
 
 # PDF extraction can flatten control-panel diagrams into ambiguous linear text.
 # These notes preserve a manually verified relationship without changing the source quote.
@@ -71,6 +56,26 @@ class GenerationConfigurationError(RuntimeError):
     """Raised when local API configuration is missing or unsafe."""
 
 
+class GatewayAuthenticationError(RuntimeError):
+    """Raised when OpenRouter rejects the configured API key."""
+
+
+class GatewayPermissionError(RuntimeError):
+    """Raised when the configured key cannot access the selected model."""
+
+
+class GatewayRateLimitError(RuntimeError):
+    """Raised when the request reaches a rate, credit, or spending limit."""
+
+
+class GatewayConnectionError(RuntimeError):
+    """Raised when the request cannot reach OpenRouter."""
+
+
+class GatewayRequestError(RuntimeError):
+    """Raised when OpenRouter rejects or cannot parse the request."""
+
+
 def build_model_input(
     *, brand: str, model: str, question: str, results: list[dict[str, Any]]
 ) -> str:
@@ -97,18 +102,6 @@ def build_model_input(
         f"Model: {model}\n"
         f"Question: {question}\n\n"
         f"Official-manual evidence:\n{evidence}{notes_section}"
-    )
-
-
-def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float | None:
-    """Estimate standard token cost for models with recorded price constants."""
-    prices = MODEL_PRICES.get(model)
-    if prices is None:
-        return None
-    return round(
-        input_tokens / 1_000_000 * prices["input"]
-        + output_tokens / 1_000_000 * prices["output"],
-        8,
     )
 
 
@@ -153,18 +146,10 @@ def grounded_answer(
         )
 
     model_name = os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL)
-    client = OpenAI(
-        base_url=os.getenv("OPENROUTER_BASE_URL", OPENROUTER_BASE_URL),
-        api_key=api_key,
-        default_headers={
-            "HTTP-Referer": "https://github.com/shirley830/washing-machine-manual-assistant",
-            "X-OpenRouter-Title": "Washing Machine Manual Assistant",
-        },
-    )
-    started = time.perf_counter()
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=[
+    base_url = os.getenv("OPENROUTER_BASE_URL", OPENROUTER_BASE_URL).rstrip("/")
+    payload = {
+        "model": model_name,
+        "messages": [
             {"role": "system", "content": SYSTEM_INSTRUCTIONS},
             {
                 "role": "user",
@@ -176,22 +161,50 @@ def grounded_answer(
                 ),
             },
         ],
-        max_tokens=300,
-        temperature=0,
-        extra_body={"usage": {"include": True}},
-    )
+        "max_tokens": 300,
+        "temperature": 0,
+        "usage": {"include": True},
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/shirley830/washing-machine-manual-assistant",
+        "X-OpenRouter-Title": "Washing Machine Manual Assistant",
+    }
+    started = time.perf_counter()
+    try:
+        response = requests.post(
+            f"{base_url}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=60,
+        )
+    except (requests.ConnectionError, requests.Timeout) as error:
+        raise GatewayConnectionError(str(error)) from error
     latency_seconds = round(time.perf_counter() - started, 3)
 
-    output_text = (response.choices[0].message.content or "").strip()
-    input_tokens = response.usage.prompt_tokens if response.usage else 0
-    output_tokens = response.usage.completion_tokens if response.usage else 0
-    total_tokens = response.usage.total_tokens if response.usage else 0
-    usage_payload = response.usage.model_dump() if response.usage else {}
+    if response.status_code == 401:
+        raise GatewayAuthenticationError(response.text)
+    if response.status_code == 403:
+        raise GatewayPermissionError(response.text)
+    if response.status_code == 429:
+        raise GatewayRateLimitError(response.text)
+    if response.status_code >= 400:
+        raise GatewayRequestError(response.text)
+
+    try:
+        response_payload = response.json()
+        output_text = response_payload["choices"][0]["message"]["content"].strip()
+    except (KeyError, IndexError, TypeError, ValueError) as error:
+        raise GatewayRequestError("OpenRouter returned an invalid response.") from error
+
+    usage_payload = response_payload.get("usage") or {}
+    input_tokens = int(usage_payload.get("prompt_tokens") or 0)
+    output_tokens = int(usage_payload.get("completion_tokens") or 0)
+    total_tokens = int(usage_payload.get("total_tokens") or 0)
     reported_cost = usage_payload.get("cost")
     estimated_cost = (
-        round(float(reported_cost), 8)
-        if reported_cost is not None
-        else estimate_cost_usd(model_name, input_tokens, output_tokens)
+        round(float(reported_cost), 8) if reported_cost is not None else None
     )
     usage = {
         "model": model_name,
@@ -278,35 +291,35 @@ def main() -> int:
     except (RetrievalInputError, GenerationConfigurationError, FileNotFoundError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2
-    except AuthenticationError:
+    except GatewayAuthenticationError:
         print(
             "Error: OpenRouter rejected the API key. Check that .env contains the "
             "complete active OpenRouter key with no quotes, spaces, or placeholder text.",
             file=sys.stderr,
         )
         return 2
-    except PermissionDeniedError:
+    except GatewayPermissionError:
         print(
             "Error: This API key does not have permission to use the selected model. "
             "Check the OpenRouter key permissions or choose another available model.",
             file=sys.stderr,
         )
         return 2
-    except RateLimitError:
+    except GatewayRateLimitError:
         print(
             "Error: The API request reached a rate, credit, or spending limit. Check "
             "your OpenRouter credits and limits before retrying.",
             file=sys.stderr,
         )
         return 2
-    except APIConnectionError:
+    except GatewayConnectionError:
         print(
             "Error: The program could not connect to OpenRouter. Check the network "
             "connection and try again.",
             file=sys.stderr,
         )
         return 2
-    except BadRequestError as error:
+    except GatewayRequestError as error:
         print(f"Error: The OpenRouter request was rejected: {error}", file=sys.stderr)
         return 2
 
