@@ -169,27 +169,40 @@ async function run() {
     const desktop = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await desktop.goto(appUrl, { waitUntil: "networkidle" });
     await desktop.locator(".wm-title").waitFor();
-    assert.equal(await desktop.getByRole("heading", { level: 1 }).innerText(), "Washing Machine\nManual Assistant");
+    assert.equal(await desktop.getByRole("heading", { level: 1 }).innerText(), "Every cycle,\nmade clear.");
     assert.equal(await desktop.getByRole("combobox", { name: "Brand" }).inputValue(), "Gaggenau");
     assert.equal(await desktop.getByRole("combobox", { name: "Exact model" }).inputValue(), "WM260164");
 
     const layout = await desktop.evaluate(() => {
-      const first = document.querySelector(".wm-title-line-primary").getBoundingClientRect();
-      const second = document.querySelector(".wm-title-line-accent").getBoundingClientRect();
+      const [firstLine, secondLine] = document.querySelectorAll(".wm-title-line");
+      const first = firstLine.getBoundingClientRect();
+      const second = secondLine.getBoundingClientRect();
+      const eyebrow = document.querySelector(".wm-eyebrow").getBoundingClientRect();
+      const promise = document.querySelector(".wm-promise").getBoundingClientRect();
+      const logo = document.querySelector(".wm-logo").getBoundingClientRect();
+      const wordmark = document.querySelector(".wm-wordmark").getBoundingClientRect();
       return {
         overflow: document.documentElement.scrollWidth - innerWidth,
         first: { x: first.x, width: first.width },
-        second: { x: second.x, width: second.width }
+        second: { x: second.x, width: second.width },
+        eyebrowCenter: eyebrow.left + eyebrow.width / 2,
+        promiseCenter: promise.left + promise.width / 2,
+        brandGroupCenter: (logo.left + wordmark.right) / 2
       };
     });
     assert.ok(layout.overflow <= 0, "desktop must not scroll horizontally");
     assert.ok(Math.abs(center(layout.first) - center(layout.second)) < 1, "title lines must share a visual center");
+    assert.ok(Math.abs(layout.eyebrowCenter - center(layout.first)) < 1, "eyebrow must align with the title center");
+    assert.ok(Math.abs(layout.promiseCenter - center(layout.first)) < 1, "supporting copy must align with the title center");
+    assert.ok(Math.abs(layout.brandGroupCenter - center(layout.first)) < 1, "logo and wordmark must align with the title center");
 
     await submitQuestion(desktop, "What does error code E:30 / -80 mean?");
     await desktop.locator(".wm-answer").waitFor();
     await assertText(desktop.locator(".wm-answer-copy"), "drain pipe or water drain hose is blocked");
     await assertText(desktop.locator(".wm-source-meta"), "Page 62");
     assert.match(await desktop.locator(".wm-source a").getAttribute("href"), /^https:\/\//);
+    assert.equal(await desktop.getByText("ANSWER TIME", { exact: true }).count(), 0);
+    assert.equal(await desktop.getByText("ESTIMATED COST", { exact: true }).count(), 0);
 
     await chooseOption(desktop, "Brand", "Zanussi");
     await waitForInputValue(desktop, "Exact model", "ZWG1120M");
@@ -222,8 +235,9 @@ async function run() {
     await mobile.locator(".wm-title").waitFor();
     const mobileLayout = await mobile.evaluate(() => {
       const button = document.querySelector('[data-testid="stFormSubmitButton"] button').getBoundingClientRect();
-      const first = document.querySelector(".wm-title-line-primary").getBoundingClientRect();
-      const second = document.querySelector(".wm-title-line-accent").getBoundingClientRect();
+      const [firstLine, secondLine] = document.querySelectorAll(".wm-title-line");
+      const first = firstLine.getBoundingClientRect();
+      const second = secondLine.getBoundingClientRect();
       return {
         overflow: document.documentElement.scrollWidth - innerWidth,
         button: { width: button.width, height: button.height },
