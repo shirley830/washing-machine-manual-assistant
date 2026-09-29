@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = PROJECT_ROOT / "data" / "manuals_manifest.csv"
 DEFAULT_SUPPLEMENTS = PROJECT_ROOT / "data" / "manual_supplements.csv"
 DEFAULT_MANUALS_DIR = PROJECT_ROOT / "data" / "manuals"
-DEFAULT_OUTPUT = PROJECT_ROOT / "outputs" / "chunks.jsonl"
+DEFAULT_OUTPUT = PROJECT_ROOT / "data" / "chunks.jsonl"
 
 
 def normalize_text(text: str) -> str:

@@ -15,7 +15,7 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = PROJECT_ROOT / "data" / "manuals_manifest.csv"
-DEFAULT_CHUNKS = PROJECT_ROOT / "outputs" / "chunks.jsonl"
+DEFAULT_CHUNKS = PROJECT_ROOT / "data" / "chunks.jsonl"
 
 TOKEN_PATTERN = re.compile(r"[^\W_]+(?:[-:/][^\W_]+)*", re.IGNORECASE)
 ERROR_CODE_PATTERN = re.compile(r"\b[a-z]\s*:?\s*\d{2,}\b", re.IGNORECASE)

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-labelledby="title description">
+  <title id="title">Washing Machine Manual Assistant</title>
+  <description id="description">A washing machine drum containing water and an open manual, topped by a graduation cap.</description>
+  <defs>
+    <linearGradient id="machine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#c9e7ee"/>
+    </linearGradient>
+    <linearGradient id="drum" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#164fbe"/>
+      <stop offset="1" stop-color="#0a274a"/>
+    </linearGradient>
+  </defs>
+  <rect x="34" y="45" width="112" height="119" rx="25" fill="url(#machine)" stroke="#0b3b6c" stroke-width="5"/>
+  <circle cx="90" cy="108" r="42" fill="url(#drum)" stroke="#8de5ee" stroke-width="7"/>
+  <path d="M51 114 C65 103 77 120 90 111 C104 101 117 118 131 107 L131 134 C116 145 65 146 50 132 Z" fill="#49d4e5" opacity=".9"/>
+  <path d="M67 101 C74 96 82 97 90 103 C98 97 106 96 113 101 L113 121 C105 116 98 117 90 123 C82 117 75 116 67 121 Z" fill="#fffdf8" stroke="#b9eaf0" stroke-width="2"/>
+  <circle cx="124" cy="65" r="6" fill="#55d7e8"/>
+  <path d="M36 44 L90 20 L144 44 L90 66 Z" fill="#165ee8" stroke="#092547" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M55 53 V72 C73 85 108 85 126 72 V53 L90 68 Z" fill="#114cad"/>
+  <path d="M144 44 V75" stroke="#092547" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="144" cy="79" r="5" fill="#55d7e8" stroke="#092547" stroke-width="3"/>
+</svg>

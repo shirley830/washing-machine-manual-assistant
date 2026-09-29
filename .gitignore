@@ -218,9 +218,17 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Local design-review captures
+.impeccable/
+
 # Secrets
 .env
 
 # Project data
 data/manuals/*.pdf
 outputs/
+node_modules/
+playwright-report/
+test-results/
+evaluation/formal_retrieval_results_50.csv
+design/

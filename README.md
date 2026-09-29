@@ -1,6 +1,28 @@
 # washing-machine-manual-assistant
 A model-specific RAG assistant for answering washing machine questions using official manuals.
 
+## Run the web interface from a fresh clone
+
+The repository includes the prebuilt, model-labelled retrieval index at
+`data/chunks.jsonl`. The original PDF manuals are intentionally not required at
+runtime, so a fresh clone can answer questions without rebuilding the index.
+
+Create a virtual environment, install the pinned dependencies, configure a private
+OpenRouter key, and start the Streamlit app:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env and replace only the OPENROUTER_API_KEY placeholder.
+streamlit run streamlit_app.py
+```
+
+The interface lets the user select one of the five supported models, ask a natural
+language question, and inspect the exact manual page used for the answer. Requests
+without sufficient model-specific evidence are refused before answer generation.
+
 ## Current prototype
 
 The project currently supports five washing-machine models. It extracts page-labelled
@@ -9,12 +31,16 @@ local BM25 keyword baseline. No API key is required for ingestion or retrieval.
 
 ## Run the pipeline
 
-Activate the virtual environment and create the manual chunks:
+Rebuilding the checked-in index is optional. Place the five manifest-listed PDFs in
+`data/manuals/`, activate the virtual environment, and run:
 
 ```bash
 source .venv/bin/activate
 python src/ingest.py
 ```
+
+This replaces `data/chunks.jsonl`. PDF files remain excluded from Git, while the
+small deterministic index is committed so reviewers can run the project directly.
 
 Retrieve the three most relevant passages for one supported model:
 
@@ -49,6 +75,38 @@ python evaluation/run_smoke_answering.py
 The retrieval smoke test reports Recall@3. The answer/refusal test checks that
 answerable questions cite the expected evidence and that unsupported requests are
 refused without a citation.
+
+## Browser end-to-end test
+
+The browser test starts the real Streamlit application and a deterministic local
+OpenRouter-compatible server. It tests two model-specific E30 answers, exact page
+citations, evidence-gated refusal, empty input, API authentication failure, stale
+answer clearing, desktop layout, mobile overflow, title alignment, and touch-target
+size. It does not use the real `.env` key and makes no paid API calls.
+
+Install the test-only browser dependency once, then run the test:
+
+```bash
+npm install
+npx playwright install chromium webkit
+npm run test:e2e:all
+```
+
+To use an existing Chrome installation instead of downloading Chromium:
+
+```bash
+PLAYWRIGHT_CHROMIUM_EXECUTABLE="/path/to/Google Chrome" npm run test:e2e
+```
+
+The WebKit run exercises the browser engine used by Safari. It is a browser-engine
+test rather than a claim that every physical iPhone or macOS Safari version was tested.
+
+The same retrieval, behavior, syntax, and browser checks run automatically through
+GitHub Actions on every push and pull request.
+
+The generation prompt also includes a regression-tested PDF-layout clarification for
+control labels that become ambiguous when a control-panel diagram is extracted as
+linear text.
 
 ## Grounded language-model generation
 
@@ -108,5 +166,5 @@ Recorded formal run:
 - Recall@3: 35/35 (100%)
 - Answer generation: 35/35 answerable cases
 - Refusal accuracy: 15/15 unanswerable or unroutable cases
-- Manually reviewed faithfulness: 19/20 (95%)
-- API use: 36,748 tokens across 35 calls; estimated cost USD 0.00566507
+- Manually reviewed faithfulness: 20/20 (100%)
+- API use: 37,055 tokens across 35 recorded evaluation calls; estimated cost USD 0.00575937

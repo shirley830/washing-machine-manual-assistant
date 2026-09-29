@@ -96,6 +96,7 @@ def evaluate_case(case: dict[str, str], generate_answers: bool) -> dict[str, str
         if chunk_id in retrieved_ids
     ]
     retrieval_rank = min(matching_ranks) if matching_ranks else None
+    retrieval_hit = None if not accepted else bool(retrieval_rank)
 
     response: dict[str, Any] = {
         "status": "not_run",
@@ -128,9 +129,11 @@ def evaluate_case(case: dict[str, str], generate_answers: bool) -> dict[str, str
     citations = response.get("citations", [])
     cited_ids = [citation["chunk_id"] for citation in citations]
     cited_pages = [str(citation["page"]) for citation in citations]
-    behavior_pass = response["status"] == expected_status
-    if expected_status == "answer":
-        behavior_pass = behavior_pass and bool(citations)
+    behavior_pass: bool | None = None
+    if generate_answers:
+        behavior_pass = response["status"] == expected_status
+        if expected_status == "answer":
+            behavior_pass = behavior_pass and bool(citations)
 
     usage = response.get("usage") or {}
     return {
@@ -144,13 +147,13 @@ def evaluate_case(case: dict[str, str], generate_answers: bool) -> dict[str, str
         "acceptable_evidence_chunk_ids": "|".join(accepted),
         "retrieved_top3_chunk_ids": "|".join(retrieved_ids),
         "retrieval_rank": str(retrieval_rank or ""),
-        "retrieval_hit_at_3": str(bool(retrieval_rank)).upper(),
+        "retrieval_hit_at_3": "" if retrieval_hit is None else str(retrieval_hit).upper(),
         "system_status": response["status"],
         "system_reason": response.get("reason", ""),
         "system_answer": response.get("answer", ""),
         "cited_chunk_ids": "|".join(cited_ids),
         "cited_pages": "|".join(cited_pages),
-        "behavior_pass": str(behavior_pass).upper(),
+        "behavior_pass": "" if behavior_pass is None else str(behavior_pass).upper(),
         "model_used": str(usage.get("model", "")),
         "input_tokens": str(usage.get("input_tokens", "")),
         "output_tokens": str(usage.get("output_tokens", "")),
@@ -172,26 +175,27 @@ def save_results(path: Path, rows: list[dict[str, str]]) -> None:
         writer.writerows(rows)
 
 
-def print_summary(rows: list[dict[str, str]]) -> None:
+def print_summary(rows: list[dict[str, str]], include_generation: bool) -> None:
     answerable = [row for row in rows if row["category"] == "answerable"]
     retrieval_hits = sum(parse_bool(row["retrieval_hit_at_3"]) for row in answerable)
     behavior_passes = sum(parse_bool(row["behavior_pass"]) for row in rows)
     api_rows = [row for row in rows if row["total_tokens"]]
     total_tokens = sum(int(row["total_tokens"]) for row in api_rows)
     total_cost = sum(float(row["estimated_cost_usd"] or 0) for row in api_rows)
-    print(
-        json.dumps(
+    summary: dict[str, str | float | int] = {
+        "recall_at_3": f"{retrieval_hits}/{len(answerable)}",
+        "recall_at_3_rate": round(retrieval_hits / len(answerable), 4),
+    }
+    if include_generation:
+        summary.update(
             {
-                "recall_at_3": f"{retrieval_hits}/{len(answerable)}",
-                "recall_at_3_rate": round(retrieval_hits / len(answerable), 4),
                 "behavior_pass": f"{behavior_passes}/{len(rows)}",
                 "api_calls": len(api_rows),
                 "total_tokens": total_tokens,
                 "estimated_cost_usd": round(total_cost, 8),
-            },
-            indent=2,
+            }
         )
-    )
+    print(json.dumps(summary, indent=2))
 
 
 def parse_args() -> argparse.Namespace:
@@ -236,16 +240,22 @@ def main() -> int:
             action = "evaluated"
         results.append(result)
         save_results(args.output, results)
-        print(
-            f"[{index:02d}/{len(cases)}] {case['case_id']} "
-            f"{action} "
+        progress = (
             f"retrieval={result['retrieval_hit_at_3']} "
             f"status={result['system_status']} "
-            f"behavior={result['behavior_pass']}",
+            f"behavior={result['behavior_pass']}"
+            if args.generate
+            else f"retrieval_hit_at_3={result['retrieval_hit_at_3'] or 'N/A'}"
+        )
+        print(
+            f"[{index:02d}/{len(cases)}] {case['case_id']} {action} {progress}",
             flush=True,
         )
 
-    print_summary(results)
+    print_summary(results, include_generation=args.generate)
+    if not args.generate:
+        answerable = [row for row in results if row["category"] == "answerable"]
+        return 0 if all(parse_bool(row["retrieval_hit_at_3"]) for row in answerable) else 1
     return 0 if all(parse_bool(row["behavior_pass"]) for row in results) else 1
 
 

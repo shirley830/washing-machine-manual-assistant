@@ -1,0 +1,12 @@
+{
+  "name": "washing-machine-manual-assistant-tests",
+  "private": true,
+  "scripts": {
+    "test:e2e": "node tests/frontend_e2e.mjs",
+    "test:e2e:webkit": "PLAYWRIGHT_BROWSER=webkit node tests/frontend_e2e.mjs",
+    "test:e2e:all": "npm run test:e2e && npm run test:e2e:webkit"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

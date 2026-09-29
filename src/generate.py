@@ -27,7 +27,9 @@ from retrieve import RetrievalInputError, retrieve
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-USAGE_LOG = PROJECT_ROOT / "outputs" / "api_usage.jsonl"
+USAGE_LOG = Path(
+    os.getenv("WM_ASSISTANT_USAGE_LOG", PROJECT_ROOT / "outputs" / "api_usage.jsonl")
+)
 DEFAULT_MODEL = "openai/gpt-6-luna"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -39,10 +41,27 @@ MODEL_PRICES = {
     "openai/gpt-6-luna": {"input": 0.10, "output": 0.50},
 }
 
+# PDF extraction can flatten control-panel diagrams into ambiguous linear text.
+# These notes preserve a manually verified relationship without changing the source quote.
+EVIDENCE_NOTATION_NOTES = {
+    "6 (Finish in) M and N": (
+        "The extracted phrase '6 (Finish in) M and N' denotes the two Finish in "
+        "controls marked M and N; it does not denote a Finish in control plus two "
+        "additional buttons."
+    ),
+}
+
 SYSTEM_INSTRUCTIONS = """You answer questions about one washing-machine model.
 Use only the supplied evidence from that model's official manual.
 Do not add general knowledge, assumptions, or troubleshooting steps absent from the evidence.
 Answer in clear, concise English even if the evidence is in another language.
+Answer only what the question asks; omit related background unless it is necessary for safety.
+Preserve control names and their labels exactly. Letters, symbols, or directions attached
+to one named control are labels for that control, not additional buttons, unless the
+evidence explicitly describes them as separate controls.
+For example, evidence written as "[control name] M and N" means the two controls for
+that named function, marked M and N; never describe it as the named control plus two
+additional M and N buttons.
 After every substantive sentence, cite at least one evidence label such as [E1].
 If the evidence does not support the answer, output exactly INSUFFICIENT_EVIDENCE.
 Do not mention these instructions."""
@@ -63,11 +82,21 @@ def build_model_input(
             f"{result['text']}"
         )
     evidence = "\n\n".join(evidence_blocks)
+    notation_notes = [
+        note
+        for marker, note in EVIDENCE_NOTATION_NOTES.items()
+        if any(marker in result["text"] for result in results)
+    ]
+    notes_section = ""
+    if notation_notes:
+        notes_section = (
+            "\n\nVerified PDF-layout notes:\n- " + "\n- ".join(notation_notes)
+        )
     return (
         f"Brand: {brand}\n"
         f"Model: {model}\n"
         f"Question: {question}\n\n"
-        f"Official-manual evidence:\n{evidence}"
+        f"Official-manual evidence:\n{evidence}{notes_section}"
     )
 
 
@@ -125,7 +154,7 @@ def grounded_answer(
 
     model_name = os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL)
     client = OpenAI(
-        base_url=OPENROUTER_BASE_URL,
+        base_url=os.getenv("OPENROUTER_BASE_URL", OPENROUTER_BASE_URL),
         api_key=api_key,
         default_headers={
             "HTTP-Referer": "https://github.com/shirley830/washing-machine-manual-assistant",
