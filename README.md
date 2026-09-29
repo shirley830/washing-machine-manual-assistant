@@ -10,6 +10,8 @@
   [![Project checks](https://github.com/shirley830/washing-machine-manual-assistant/actions/workflows/tests.yml/badge.svg)](https://github.com/shirley830/washing-machine-manual-assistant/actions/workflows/tests.yml)
   ![Python 3.11](https://img.shields.io/badge/Python-3.11-165ee8?logo=python&logoColor=white)
   ![Streamlit](https://img.shields.io/badge/Interface-Streamlit-092547?logo=streamlit&logoColor=white)
+
+  **[Open the live application](https://washing-machine-manual-assistant-biqqsq6oxdwwzfsyurnzwq.streamlit.app/)**
 </div>
 
 ![Desktop interface showing the model-specific washing machine manual assistant](docs/images/app-desktop.png)
