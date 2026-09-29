@@ -113,7 +113,14 @@ def append_usage_log(record: dict[str, Any]) -> None:
 
 
 def grounded_answer(
-    *, brand: str, model: str, question: str, top_k: int = 3
+    *,
+    brand: str,
+    model: str,
+    question: str,
+    top_k: int = 3,
+    api_key: str | None = None,
+    model_name: str | None = None,
+    base_url: str | None = None,
 ) -> dict[str, Any]:
     """Retrieve, gate, generate, cite, and record one answer."""
     results = retrieve(
@@ -137,16 +144,15 @@ def grounded_answer(
         }
 
     load_dotenv(PROJECT_ROOT / ".env")
-    api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    api_key = (api_key or os.getenv("OPENROUTER_API_KEY", "")).strip()
     if not api_key or "replace_with" in api_key.casefold():
         raise GenerationConfigurationError(
-            "OPENROUTER_API_KEY still contains the placeholder or is missing. Open "
-            ".env, replace only the text after OPENROUTER_API_KEY= with your real "
-            "OpenRouter key, and save."
+            "OPENROUTER_API_KEY is missing or still contains the placeholder. "
+            "Configure a valid OpenRouter key and try again."
         )
 
-    model_name = os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL)
-    base_url = os.getenv("OPENROUTER_BASE_URL", OPENROUTER_BASE_URL).rstrip("/")
+    model_name = model_name or os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL)
+    base_url = (base_url or os.getenv("OPENROUTER_BASE_URL", OPENROUTER_BASE_URL)).rstrip("/")
     payload = {
         "model": model_name,
         "messages": [

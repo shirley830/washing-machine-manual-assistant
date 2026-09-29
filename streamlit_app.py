@@ -518,7 +518,7 @@ def render_result(result: dict[str, Any], brand: str, model: str) -> None:
 def user_facing_error(error: Exception) -> str:
     """Translate API and configuration failures into actionable UI copy."""
     if isinstance(error, GatewayAuthenticationError):
-        return "OpenRouter rejected the API key. Check OPENROUTER_API_KEY in the local .env file."
+        return "OpenRouter rejected the API key. Check the configured OPENROUTER_API_KEY."
     if isinstance(error, GatewayPermissionError):
         return "The configured OpenRouter key cannot use the selected model. Check its model permissions."
     if isinstance(error, GatewayRateLimitError):
@@ -528,6 +528,15 @@ def user_facing_error(error: Exception) -> str:
     if isinstance(error, GatewayRequestError):
         return "OpenRouter rejected the request. Check the selected model configuration."
     return str(error)
+
+
+def hosted_secret(name: str) -> str | None:
+    """Read an optional Streamlit-hosted secret without breaking local runs."""
+    try:
+        value = st.secrets.get(name)
+    except (FileNotFoundError, KeyError):
+        return None
+    return str(value).strip() if value else None
 
 
 def main() -> None:
@@ -577,6 +586,9 @@ def main() -> None:
                         brand=brand,
                         model=model,
                         question=question.strip(),
+                        api_key=hosted_secret("OPENROUTER_API_KEY"),
+                        model_name=hosted_secret("OPENROUTER_MODEL"),
+                        base_url=hosted_secret("OPENROUTER_BASE_URL"),
                     )
                     st.session_state["answer_brand"] = brand
                     st.session_state["answer_model"] = model
