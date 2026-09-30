@@ -125,6 +125,55 @@ def safe_float(value: Any) -> float | None:
         return None
 
 
+def request_completion(
+    *, base_url: str, headers: dict[str, str], payload: dict[str, Any]
+) -> tuple[dict[str, Any], str, float]:
+    """Request one usable completion, retrying transient or empty responses."""
+    started = time.perf_counter()
+    attempts = 3
+    for attempt in range(attempts):
+        try:
+            response = requests.post(
+                f"{base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=60,
+            )
+        except requests.RequestException as error:
+            if attempt < attempts - 1:
+                time.sleep(0.25 * (2**attempt))
+                continue
+            raise GatewayConnectionError(str(error)) from error
+
+        if response.status_code == 401:
+            raise GatewayAuthenticationError(response.text)
+        if response.status_code == 403:
+            raise GatewayPermissionError(response.text)
+        if response.status_code == 429:
+            raise GatewayRateLimitError(response.text)
+        if response.status_code >= 500 and attempt < attempts - 1:
+            time.sleep(0.25 * (2**attempt))
+            continue
+        if response.status_code >= 400:
+            raise GatewayRequestError(response.text)
+
+        try:
+            response_payload = response.json()
+            output_text = extract_response_text(response_payload)
+        except (ValueError, GatewayRequestError) as error:
+            if attempt < attempts - 1:
+                time.sleep(0.25 * (2**attempt))
+                continue
+            raise GatewayRequestError(
+                "OpenRouter did not return a usable answer after three attempts."
+            ) from error
+
+        latency_seconds = round(time.perf_counter() - started, 3)
+        return response_payload, output_text, latency_seconds
+
+    raise GatewayRequestError("OpenRouter did not return a usable answer.")
+
+
 def build_model_input(
     *, brand: str, model: str, question: str, results: list[dict[str, Any]]
 ) -> str:
@@ -226,32 +275,11 @@ def grounded_answer(
         "HTTP-Referer": "https://github.com/shirley830/washing-machine-manual-assistant",
         "X-OpenRouter-Title": "Washing Machine Manual Assistant",
     }
-    started = time.perf_counter()
-    try:
-        response = requests.post(
-            f"{base_url}/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=60,
-        )
-    except requests.RequestException as error:
-        raise GatewayConnectionError(str(error)) from error
-    latency_seconds = round(time.perf_counter() - started, 3)
-
-    if response.status_code == 401:
-        raise GatewayAuthenticationError(response.text)
-    if response.status_code == 403:
-        raise GatewayPermissionError(response.text)
-    if response.status_code == 429:
-        raise GatewayRateLimitError(response.text)
-    if response.status_code >= 400:
-        raise GatewayRequestError(response.text)
-
-    try:
-        response_payload = response.json()
-    except ValueError as error:
-        raise GatewayRequestError("OpenRouter returned an invalid response.") from error
-    output_text = extract_response_text(response_payload)
+    response_payload, output_text, latency_seconds = request_completion(
+        base_url=base_url,
+        headers=headers,
+        payload=payload,
+    )
 
     usage_payload = response_payload.get("usage") or {}
     if not isinstance(usage_payload, dict):

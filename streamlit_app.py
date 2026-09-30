@@ -481,12 +481,15 @@ def trusted_url(raw_url: str) -> str:
 
 def render_result(result: dict[str, Any], brand: str, model: str) -> None:
     """Render an answer or refusal as a continuous manual section."""
-    answered = result["status"] == "answer"
-    heading = (
-        "Answer from the <span>official manual.</span>"
-        if answered
-        else "The manual does <span>not support this answer.</span>"
-    )
+    status = result["status"]
+    answered = status == "answer"
+    unavailable = status == "unavailable"
+    if answered:
+        heading = "Answer from the <span>official manual.</span>"
+    elif unavailable:
+        heading = "Answer temporarily <span>unavailable.</span>"
+    else:
+        heading = "The manual does <span>not support this answer.</span>"
     answer = html.escape(str(result["answer"]))
     reason = html.escape(str(result.get("reason", "")))
     citations = result.get("citations", [])
@@ -504,8 +507,13 @@ def render_result(result: dict[str, Any], brand: str, model: str) -> None:
             f'<a href="{url}" target="_blank" rel="noopener noreferrer">Open official manual</a></div>'
         )
 
-    explanation_title = "Why this answer is shown" if answered else "Why the assistant refused"
-    css_class = "wm-answer" if answered else "wm-answer wm-refusal"
+    if answered:
+        explanation_title = "Why this answer is shown"
+    elif unavailable:
+        explanation_title = "What happened"
+    else:
+        explanation_title = "Why the assistant refused"
+    css_class = "wm-answer" if answered or unavailable else "wm-answer wm-refusal"
     sources_html = f'<div class="wm-sources">{"".join(source_rows)}</div>' if source_rows else ""
     result_html = (
         f'<section class="wm-answer-shell"><div class="{css_class}"><h2>{heading}</h2>'
@@ -533,6 +541,21 @@ def user_facing_error(error: Exception) -> str:
             "If this continues, check the selected model configuration."
         )
     return str(error)
+
+
+def temporarily_unavailable_result() -> dict[str, Any]:
+    """Return a calm, non-error result for a temporary generation outage."""
+    return {
+        "status": "unavailable",
+        "answer": (
+            "The official manual was found, but the answer service did not return "
+            "a usable response. Please try again in a moment."
+        ),
+        "reason": "No unverified answer was displayed.",
+        "coverage": 0.0,
+        "citations": [],
+        "usage": None,
+    }
 
 
 def hosted_secret(name: str) -> str | None:
@@ -597,23 +620,23 @@ def main() -> None:
                     )
                     st.session_state["answer_brand"] = brand
                     st.session_state["answer_model"] = model
+            except (GatewayRateLimitError, GatewayConnectionError, GatewayRequestError):
+                st.session_state["answer_result"] = temporarily_unavailable_result()
+                st.session_state["answer_brand"] = brand
+                st.session_state["answer_model"] = model
             except (
                 RetrievalInputError,
                 GenerationConfigurationError,
                 FileNotFoundError,
                 GatewayAuthenticationError,
                 GatewayPermissionError,
-                GatewayRateLimitError,
-                GatewayConnectionError,
-                GatewayRequestError,
             ) as error:
                 st.error(user_facing_error(error))
             except Exception:
                 LOGGER.exception("Unexpected failure while answering a manual question.")
-                st.error(
-                    "The answer service is temporarily unavailable. "
-                    "Please try again in a moment."
-                )
+                st.session_state["answer_result"] = temporarily_unavailable_result()
+                st.session_state["answer_brand"] = brand
+                st.session_state["answer_model"] = model
 
     if "answer_result" in st.session_state:
         render_result(

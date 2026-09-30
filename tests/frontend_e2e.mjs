@@ -53,10 +53,10 @@ function createMockOpenRouter() {
         return;
       }
 
-      if (requestBodies.length === 4) {
+      if ([4, 6, 7, 8].includes(requestBodies.length)) {
         response.writeHead(200, { "Content-Type": "application/json" });
         response.end(JSON.stringify({
-          id: "mock-empty-response",
+          id: `mock-empty-response-${requestBodies.length}`,
           object: "chat.completion",
           created: 1,
           model: payload.model,
@@ -250,8 +250,14 @@ async function run() {
     assert.equal(await desktop.locator(".wm-answer-shell").count(), 0, "an API failure must not leave a stale answer");
 
     await submitQuestion(desktop, "What does error code E:30 / -80 mean?");
-    await assertText(desktop.getByRole("alert"), "OpenRouter did not return a usable answer");
-    assert.equal(await desktop.locator(".wm-answer-shell").count(), 0, "an empty model response must not leave a stale answer");
+    await desktop.locator(".wm-answer-copy").waitFor();
+    await assertText(desktop.locator(".wm-answer-copy"), "drain pipe or water drain hose is blocked");
+    assert.equal(await desktop.getByRole("alert").count(), 0, "a recovered empty response must not show an error");
+
+    await submitQuestion(desktop, "What does error code E:30 / -80 mean?");
+    await assertText(desktop.getByRole("heading", { level: 2 }), "Answer temporarily unavailable");
+    await assertText(desktop.locator(".wm-answer-copy"), "Please try again in a moment");
+    assert.equal(await desktop.getByRole("alert").count(), 0, "repeated empty responses must not show an error alert");
 
     assert.match(requestBodies[0].messages.at(-1).content, /Model: WM260164/);
     assert.match(requestBodies[1].messages.at(-1).content, /Model: ZWG1120M/);
@@ -278,7 +284,8 @@ async function run() {
     console.log(`PASS ${browserName} initial desktop layout and form state`);
     console.log("PASS Gaggenau and Zanussi model-collision answers with exact pages");
     console.log("PASS evidence-gated refusal without an API call");
-    console.log("PASS empty-input, authentication, and empty-response errors clear stale results");
+    console.log("PASS empty-input and authentication errors clear stale results");
+    console.log("PASS empty model response retries and calm unavailable fallback");
     console.log("PASS mobile overflow, title alignment, and touch-target checks");
     console.log(`PASS ${requestBodies.length} deterministic mock OpenRouter requests; no paid API used`);
   } finally {
