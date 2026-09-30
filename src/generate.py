@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 import sys
@@ -25,6 +26,7 @@ USAGE_LOG = Path(
 )
 DEFAULT_MODEL = "openrouter/auto"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+LOGGER = logging.getLogger(__name__)
 
 # PDF extraction can flatten control-panel diagrams into ambiguous linear text.
 # These notes preserve a manually verified relationship without changing the source quote.
@@ -103,6 +105,24 @@ def extract_response_text(response_payload: Any) -> str:
             "OpenRouter returned an empty assistant response. Please try again."
         )
     return output_text
+
+
+def safe_int(value: Any) -> int:
+    """Convert optional usage values without breaking an otherwise valid answer."""
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def safe_float(value: Any) -> float | None:
+    """Convert optional cost metadata, returning None when it is malformed."""
+    if value is None:
+        return None
+    try:
+        return round(float(value), 8)
+    except (TypeError, ValueError):
+        return None
 
 
 def build_model_input(
@@ -214,7 +234,7 @@ def grounded_answer(
             json=payload,
             timeout=60,
         )
-    except (requests.ConnectionError, requests.Timeout) as error:
+    except requests.RequestException as error:
         raise GatewayConnectionError(str(error)) from error
     latency_seconds = round(time.perf_counter() - started, 3)
 
@@ -234,13 +254,13 @@ def grounded_answer(
     output_text = extract_response_text(response_payload)
 
     usage_payload = response_payload.get("usage") or {}
-    input_tokens = int(usage_payload.get("prompt_tokens") or 0)
-    output_tokens = int(usage_payload.get("completion_tokens") or 0)
-    total_tokens = int(usage_payload.get("total_tokens") or 0)
+    if not isinstance(usage_payload, dict):
+        usage_payload = {}
+    input_tokens = safe_int(usage_payload.get("prompt_tokens"))
+    output_tokens = safe_int(usage_payload.get("completion_tokens"))
+    total_tokens = safe_int(usage_payload.get("total_tokens"))
     reported_cost = usage_payload.get("cost")
-    estimated_cost = (
-        round(float(reported_cost), 8) if reported_cost is not None else None
-    )
+    estimated_cost = safe_float(reported_cost)
     usage = {
         "model": model_name,
         "input_tokens": input_tokens,
@@ -249,15 +269,18 @@ def grounded_answer(
         "latency_seconds": latency_seconds,
         "estimated_cost_usd": estimated_cost,
     }
-    append_usage_log(
-        {
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-            "brand": brand,
-            "model_number": model,
-            "question": question,
-            **usage,
-        }
-    )
+    try:
+        append_usage_log(
+            {
+                "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                "brand": brand,
+                "model_number": model,
+                "question": question,
+                **usage,
+            }
+        )
+    except OSError:
+        LOGGER.exception("Could not write the optional API usage log.")
 
     if output_text == "INSUFFICIENT_EVIDENCE":
         return {

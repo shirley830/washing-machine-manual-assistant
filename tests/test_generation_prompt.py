@@ -14,6 +14,8 @@ from generate import (  # noqa: E402
     GatewayRequestError,
     build_model_input,
     extract_response_text,
+    safe_float,
+    safe_int,
 )
 from retrieve import retrieve  # noqa: E402
 
@@ -68,6 +70,12 @@ class GenerationPromptTests(unittest.TestCase):
     def test_missing_response_shape_becomes_gateway_error(self) -> None:
         with self.assertRaises(GatewayRequestError):
             extract_response_text({"choices": []})
+
+    def test_malformed_usage_metadata_is_ignored(self) -> None:
+        self.assertEqual(safe_int("12"), 12)
+        self.assertEqual(safe_int({"unexpected": "value"}), 0)
+        self.assertEqual(safe_float("0.00012"), 0.00012)
+        self.assertIsNone(safe_float({"unexpected": "value"}))
 
 
 if __name__ == "__main__":

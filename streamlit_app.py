@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import csv
 import html
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 SRC_DIR = PROJECT_ROOT / "src"
 ASSET_DIR = PROJECT_ROOT / "assets"
 MANIFEST_PATH = PROJECT_ROOT / "data" / "manuals_manifest.csv"
+LOGGER = logging.getLogger(__name__)
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
@@ -606,6 +608,12 @@ def main() -> None:
                 GatewayRequestError,
             ) as error:
                 st.error(user_facing_error(error))
+            except Exception:
+                LOGGER.exception("Unexpected failure while answering a manual question.")
+                st.error(
+                    "The answer service is temporarily unavailable. "
+                    "Please try again in a moment."
+                )
 
     if "answer_result" in st.session_state:
         render_result(
