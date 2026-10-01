@@ -1,4 +1,10 @@
-"""Extract model-labelled text chunks from the washing-machine manuals."""
+"""Build the model-labelled retrieval index from verified manual sources.
+
+This offline pipeline reads the source manifest, extracts page text from local
+PDFs, applies documented supplements, normalises extraction noise, and writes
+``data/chunks.jsonl`` with stable provenance metadata. The runtime application
+uses the committed index and does not invoke this module.
+"""
 
 from __future__ import annotations
 

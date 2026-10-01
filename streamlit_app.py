@@ -1,4 +1,10 @@
-"""Streamlit interface for the model-specific manual assistant."""
+"""Render the public Streamlit interface for the manual assistant.
+
+The module collects brand, exact-model, and question inputs, delegates retrieval
+and grounded generation to ``src/``, and presents either cited evidence or a
+controlled refusal. It also owns responsive styling and user-facing error states;
+it does not ingest manuals or implement ranking itself.
+"""
 
 from __future__ import annotations
 

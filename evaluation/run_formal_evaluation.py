@@ -1,4 +1,10 @@
-"""Run retrieval and grounded-answer evaluation on the fixed 50-case set."""
+"""Run the fixed 50-case retrieval and grounded-answer evaluation.
+
+The runner reads labelled expectations from ``formal_evaluation_50.csv`` and can
+execute retrieval-only or hosted-generation evaluation. It writes a row-level CSV
+containing evidence ranks, observed behaviour, citations, usage, cost, and manual
+faithfulness labels so aggregate claims remain auditable.
+"""
 
 from __future__ import annotations
 

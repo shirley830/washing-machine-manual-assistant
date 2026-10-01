@@ -1,4 +1,10 @@
-"""Retrieve model-specific manual passages with a local BM25 baseline."""
+"""Retrieve page-labelled passages with exact-model filtering and local BM25.
+
+The module validates the requested brand and model, filters the committed index
+before ranking, normalises error codes, and expands a small transparent domain
+vocabulary for cross-language matching. It returns ranked passage dictionaries
+with provenance metadata and makes no network or generation-service calls.
+"""
 
 from __future__ import annotations
 

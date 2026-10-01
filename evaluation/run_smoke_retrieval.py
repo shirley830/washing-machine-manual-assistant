@@ -1,4 +1,9 @@
-"""Run the answerable smoke-test cases and report retrieval Recall@3."""
+"""Measure local retrieval Recall@3 on the answerable smoke-test cases.
+
+The script loads the compact labelled set, runs exact-model retrieval, and checks
+whether valid evidence appears among the first three passages. It performs no
+generation or network calls and exits non-zero when any labelled case is missed.
+"""
 
 from __future__ import annotations
 

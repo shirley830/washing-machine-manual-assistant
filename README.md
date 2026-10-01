@@ -58,7 +58,7 @@ The fixed formal evaluation contains 50 questions: 35 answerable cases and 15 ca
 | Manually reviewed faithfulness | **20/20 (100%)** |
 | Recorded evaluation API use | 37,055 tokens / estimated USD 0.00575937 |
 
-Detailed outputs are available in [`evaluation/formal_retrieval_results_50.csv`](evaluation/formal_retrieval_results_50.csv) and [`evaluation/formal_results_50.csv`](evaluation/formal_results_50.csv).
+Detailed outputs are available in the committed [`retrieval-only results`](evaluation/formal_retrieval_results_50.csv) and [`full recorded results`](evaluation/formal_results_50.csv). Metric definitions, reproduction commands, and limitations are documented in the [`evaluation guide`](evaluation/README.md).
 
 ## Supported models
 
@@ -70,7 +70,7 @@ Detailed outputs are available in [`evaluation/formal_retrieval_results_50.csv`]
 | SMEG | WM24UWH | Official SMEG manual |
 | Zanussi | ZWG1120M | Official Electrolux/Zanussi manual |
 
-The source URLs and local filenames are recorded in [`data/manuals_manifest.csv`](data/manuals_manifest.csv).
+The source URLs and local filenames are recorded in [`data/manuals_manifest.csv`](data/manuals_manifest.csv). The [`data guide`](data/README.md) explains provenance, schemas, supplements, rebuilding, and the model-isolation test.
 
 ## Quick start
 
@@ -163,9 +163,11 @@ washing-machine-manual-assistant/
 ├── assets/                 Logo, fonts, and documented product imagery
 ├── data/
 │   ├── chunks.jsonl        Prebuilt page-labelled retrieval index
-│   └── manuals_manifest.csv
-├── docs/images/            Desktop and mobile interface previews
-├── evaluation/             Fixed datasets, runners, and recorded results
+│   ├── manuals_manifest.csv
+│   └── README.md            Data provenance, schema, and rebuild guide
+├── docs/images/             Desktop and mobile interface previews
+├── evaluation/              Fixed datasets, runners, and recorded results
+│   └── README.md            Metrics, reproduction, and limitations
 ├── src/
 │   ├── ingest.py           PDF extraction and chunk creation
 │   ├── retrieve.py         Exact-model filtering and BM25 retrieval
@@ -178,8 +180,10 @@ washing-machine-manual-assistant/
 
 ## Design and reproducibility notes
 
-- [`PRODUCT.md`](PRODUCT.md) records the product purpose, users, constraints, and evidence policy.
+- [`PRODUCT.md`](PRODUCT.md) records the persona, inputs, outputs, architecture, constraints, target metrics, and reached metrics.
 - [`DESIGN.md`](DESIGN.md) records the interface system, responsive behaviour, typography, and motion rules.
+- [`data/README.md`](data/README.md) explains data provenance, schemas, supplements, and index rebuilding.
+- [`evaluation/README.md`](evaluation/README.md) explains the evaluation set, metrics, recorded outputs, reproduction steps, and limitations.
 - [`docs/tradeoff_analysis_draft.md`](docs/tradeoff_analysis_draft.md) documents retrieval and system-design trade-offs.
 - Official product-image source pages are documented in [`assets/machines/SOURCES.md`](assets/machines/SOURCES.md).
 

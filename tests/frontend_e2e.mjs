@@ -1,3 +1,12 @@
+/**
+ * Browser-level regression suite for the deployed Streamlit user flow.
+ *
+ * The suite starts the real application and a deterministic local
+ * OpenRouter-compatible server, then verifies model isolation, citations,
+ * refusals, provider failures, stale-state clearing, and responsive layouts.
+ * It does not make paid or external model requests.
+ */
+
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import fs from "node:fs";

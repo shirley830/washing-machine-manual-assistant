@@ -230,5 +230,4 @@ outputs/
 node_modules/
 playwright-report/
 test-results/
-evaluation/formal_retrieval_results_50.csv
 design/

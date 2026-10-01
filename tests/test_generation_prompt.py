@@ -1,4 +1,9 @@
-"""Regression checks for grounded-generation prompt construction."""
+"""Regression checks for grounded request construction and response parsing.
+
+These tests verify that model-specific evidence is represented correctly, known
+manual layouts remain disambiguated, numeric usage values are parsed safely, and
+malformed provider responses fail in a controlled way. They require no live key.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,9 @@
-"""Check answer/refusal routing and evidence citations on the smoke test set."""
+"""Check deterministic answer, refusal, and citation behaviour on smoke cases.
+
+The script uses the local extractive answer path, so it validates model routing
+and evidence gating without credentials or provider usage. It exits non-zero when
+an expected answer/refusal status or required citation is missing.
+"""
 
 from __future__ import annotations
 

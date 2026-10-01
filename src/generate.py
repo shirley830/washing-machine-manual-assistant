@@ -1,4 +1,10 @@
-"""Generate a grounded answer from model-filtered manual evidence."""
+"""Generate and validate an answer from model-filtered manual evidence.
+
+The module retrieves passages, enforces the evidence gate, constructs the bounded
+provider request, parses compatible response shapes, and records token and cost
+metadata. Provider failures are translated into typed exceptions for the interface.
+It never expands the manual catalogue or bypasses exact-model routing.
+"""
 
 from __future__ import annotations
 

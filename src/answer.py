@@ -1,4 +1,10 @@
-"""Create an evidence-gated extractive answer from retrieved manual passages."""
+"""Apply deterministic evidence gating and build an extractive fallback answer.
+
+The module accepts a brand, exact model, and question, calls the local retriever,
+and decides whether the returned passages contain enough model-specific evidence.
+Its output is an answer/refusal dictionary with citations. No external generation
+service is called here, which keeps refusal and smoke tests deterministic.
+"""
 
 from __future__ import annotations
 
